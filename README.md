@@ -3,7 +3,7 @@
 This script is used to show how long an entire project takes to run by individual processes.
 
 ### Required:
-> Input your program log
+Input log file to be timed, it is suggested to use the full path
 
 ### Optional:
 __-v__ or __--version__ Displays the version number
