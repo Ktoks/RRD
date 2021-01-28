@@ -13,7 +13,7 @@ __-h__ or __--help__ Displays help to the command line
 __-o__ Outputs program log times to any file
 
 __-d__ Input date format to be captured in log documents:
-- default: __"%Y-%m-%d %H:%M:%S"__ this string is formatted as such for the python module [datetime](https://docs.python.org/3/library/datetime.html), refer to their documentation for the chart 'strftime() and strptime() Format Codes'
+- default: __"%Y-%m-%d %H:%M:%S"__ this string is formatted as such for the python module [datetime](https://docs.python.org/3/library/datetime.html), refer to their documentation for the chart __strftime() and strptime() Format Codes__ near the bottom of the page
 
 __-L__ Allows selection of truncation level, options are:
 - __0__ will display output in ints
