@@ -173,7 +173,7 @@ parser.add_argument('-d', dest="date_format",
                     type=str,
                     help="select date format to be used in document")
 
-parser.add_argument('-l', dest="truncate_level",
+parser.add_argument('-L', dest="truncate_level",
                     nargs='?',
                     default=3,
                     type=int,
