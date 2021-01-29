@@ -12,6 +12,8 @@ __-h__ or __--help__ Displays help to the command line
 
 __-o__ Outputs program log times to any file
 
+<!-- __-c__ Allows selection of the cue, or the string at the beginning of the line that contains the date and time on it, this should be formatted as such: {-c "Start app_process" "End app_process"} you can use 'begin' instead of 'Start' or 'finish' instead of 'End', but in this version- there needs to be two words in each parenthesis group -->
+
 __-d__ Input date format to be captured in log documents:
 - default: __"%Y-%m-%d %H:%M:%S"__ this string is formatted as such for the python module [datetime](https://docs.python.org/3/library/datetime.html), refer to their documentation for the chart __strftime() and strptime() Format Codes__ near the bottom of the page
 
