@@ -4,21 +4,20 @@ import argparse
 
 
 def main(args) -> int:
-    fin = open(args.INFILE.name, 'r')
+    fin = open(args.infile.name, 'r')
     time_lst = []
     process_list = []
+
     for line in fin:
-        # print("args.cue[0]:", args.cue[0])
-        # print("args.cue[1]:", args.cue[1])
         if args.cue[0] in line:
             process_name, date, the_time = setup_str_lst(line)
 
-            process_list.append("Start " + process_name)
+            process_list.append(cue_start_startword + ' ' + process_name)
             time_lst.append(date + ' ' + the_time)
         elif args.cue[1] in line:
             process_name, date, the_time = setup_str_lst(line)
 
-            process_list.append("End " + process_name)
+            process_list.append(cue_end_startword + ' ' + process_name)
             time_lst.append(date + ' ' + the_time)
 
     fin.close()
@@ -28,13 +27,27 @@ def main(args) -> int:
 def setup_str_lst(line) -> tuple:
     strlst = line.split()
 
-    # find name of process
+    # get name of process
     process_name = strlst[2]
 
-    # find date and time in string
-    date = strlst[3][1:]
-    the_time = strlst[4][:-2]
+    # get date and time from string
+    date = num_from_string(strlst[3])
+    the_time = num_from_string(strlst[4])
     return process_name, date, the_time
+
+
+def num_from_string(date_str: str) -> str:
+    before_nums = True
+    begin_nums = 0
+    last_nums = 0
+    for i in range(len(date_str)):
+        if before_nums and date_str[i].isdigit():
+            before_nums = False
+            begin_nums = i
+            last_nums = i
+        elif date_str[i].isdigit():
+            last_nums = i
+    return date_str[begin_nums:last_nums + 1]
 
 
 def full_print(process_lst: str, time_lst: str) -> int:
@@ -46,7 +59,7 @@ def full_print(process_lst: str, time_lst: str) -> int:
     for i in range(len(process_lst)):
         individual_process = process_lst[i].split()
 
-        if "End" in individual_process:
+        if cue_end_startword in individual_process:
             # get name of process
             process_name = individual_process[1]
             start_time = start_table[process_name]
@@ -62,7 +75,6 @@ def full_print(process_lst: str, time_lst: str) -> int:
 
         else:
             process_name = individual_process[1]
-
             end_time = get_time_formatted(time_lst[i])
 
             start_table[process_name] = end_time
@@ -145,7 +157,7 @@ def cust_out(out_string: str) -> int:
 # handle arguments:
 parser = argparse.ArgumentParser(
     description="Returns the times processes run from log text files.")
-parser.add_argument(dest="INFILE", 
+parser.add_argument(dest="infile", 
                     nargs='?',
                     type=argparse.FileType('r'),
                     help="<Required> log's full path")
@@ -153,13 +165,14 @@ parser.add_argument(dest="INFILE",
 parser.add_argument('-c', dest="cue",
                     nargs='+',
                     default=["Start app_process: ", "End app_process: "],
-                    help="Input the text expected at the beginning of the line holding the date, ex:{-c 'Start app_process:' 'End app_process'}(default)")
+                    help="Input the text expected at the beginning of the line holding the date, ex:(-c 'Start app_process:' 'End app_process')(default)")
 
 parser.add_argument('-d', dest="date_format",
                     nargs='?',
                     default="%Y-%m-%d %H:%M:%S",
                     type=str,
-                    help="Select date format to be used in document (defualt='%Y-%m-%d %H:%M:%S') refer to python module datetime")
+                    help="Select date format to be used in document, refer to python module 'datetime'")
+                    
 
 parser.add_argument('-L', dest="truncate_level",
                     nargs='?',
@@ -188,5 +201,12 @@ parser.add_argument('-v', "--version",
 
 args = parser.parse_args()
 
+cue_start = args.cue[0].split()
+cue_end = args.cue[1].split()
+
+cue_start_startword = cue_start[0]
+cue_end_startword = cue_end[0]
+
 if __name__ == "__main__":
-    main(args)
+    if not main(args):
+        print(args.infile.name+ " processed successfully.")

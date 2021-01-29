@@ -1,6 +1,19 @@
 # RRD bcs_timer
 
-This script is used to show how long an entire project takes to run by individual processes.
+This Python-based script is used to show how long an entire project takes to run by individual processes
+
+The general input log file lines need to be formatted as such:
+```
+Start app_process:  full_process <2021-01-22 18:30:07>
+End app_process:  full_process <2021-01-22 18:41:42>
+```
+Each line must have at least those 4 entities in it
+An alternative, for example, would look something like this:
+```
+Begin process:  begin_process 2021022 18:30:07>
+Finsish process:  begin_process 20210122 18:41:42>
+```
+so long as the names of the processes are the same, and the date and time are formatted the same as eachother, this script should do the job nicely
 
 ### Required:
 Input log file to be timed, it is suggested to use the full path
@@ -12,7 +25,7 @@ __-h__ or __--help__ Displays help to the command line
 
 __-o__ Outputs program log times to any file
 
-<!-- __-c__ Allows selection of the cue, or the string at the beginning of the line that contains the date and time on it, this should be formatted as such: {-c "Start app_process" "End app_process"} you can use 'begin' instead of 'Start' or 'finish' instead of 'End', but in this version- there needs to be two words in each parenthesis group -->
+__-c__ Allows selection of the cue or the string at the beginning of the line that contains the date and time on it, this should be formatted as such: {-c "Start app_process" "End app_process"} you can use 'begin' instead of 'Start' or 'finish' instead of 'End', but in this version- there needs to be two words in each parenthesis group
 
 __-d__ Input date format to be captured in log documents:
 - default: __"%Y-%m-%d %H:%M:%S"__ this string is formatted as such for the python module [datetime](https://docs.python.org/3/library/datetime.html), refer to their documentation for the chart __strftime() and strptime() Format Codes__ near the bottom of the page
