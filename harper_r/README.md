@@ -1,5 +1,7 @@
 # RRD harper_r
 
+[Github link](https://github.com/kacystocks/RRD/tree/main/harper_r)
+
 This Python-based script is used to edit lines in a file if another specific line of text is present in the file
 
 The general input lines need to be case sensetive and whitespace sensetive:
