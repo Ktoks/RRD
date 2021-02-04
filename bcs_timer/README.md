@@ -1,5 +1,7 @@
 # RRD bcs_timer
 
+[Github link](https://github.com/kacystocks/RRD/tree/main/bcs_timer)
+
 This Python-based script is used to show how long an entire project takes to run by individual processes
 
 The general input log file lines need to be formatted as such:
