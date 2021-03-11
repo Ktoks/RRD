@@ -2,7 +2,7 @@
 set -e
 set -x
 # adduser kacy          # customize this to your liking
-# usermod -aG sudo kacy # input your username instead of mine
+# usermod -aG sudo kacy # input your username instead of mine to provide your new user with superuser priveleges
 sudo apt update
 sudo apt dist-upgrade -y
 sudo apt install git -y
