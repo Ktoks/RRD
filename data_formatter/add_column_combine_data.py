@@ -35,7 +35,7 @@ def main():
 		if first_file:
 			first_line = fin.readline()
 			first_line = do_replace(first_line)
-			new_str += first_line
+			new_str += first_line + '\n'
 			is_first_line = False
 			first_file = False
 		
