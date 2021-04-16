@@ -21,12 +21,12 @@ args = parser.parse_args()
 """outputs a file merged from input files, comma seperated, 
 with an column added to discern where each line came from"""
 def main():
-	new_str = args.header + ","
+	new_str = args.header + "|"
 	first_file = True
 
 	# for each input file
 	for file_in in args.input_csv:
-		fin = open(file_in, 'r', encoding = "ISO-8859-1")
+		fin = open(file_in, 'r')
 		is_first_line = True
 
 		column = file_in.split("_")[0]
@@ -38,10 +38,11 @@ def main():
 			new_str += first_line + '\n'
 			is_first_line = False
 			first_file = False
+		# print("file:", file_in)
 		
 		# for each line of the current file
 		for line in fin:
-
+			# print(line)
 			if is_first_line:
 				is_first_line = False
 				continue
@@ -49,7 +50,7 @@ def main():
 			line = do_replace(line)
 
 			# add new column to string
-			new_str += column + "," + line + "\n"
+			new_str += column + "|" + line + "\n"
 
 		fin.close()
 	fout = open(args.output, "w")
@@ -57,12 +58,12 @@ def main():
 	fout.close()
 
 
-"""Get rid of `"`, replace `|` with `,`, and get rid of excess space"""
+"""Get rid of `"`, and get rid of excess space"""
 def do_replace(line):
 	line = line.strip()
-	line = line.replace("|", ",")
 	line = line.replace("   ", " ")
 	line = line.replace("  ", " ")
+	line = line.replace("\t", " ")
 	line = line.replace("\"", "")
 	return line
 
