@@ -26,13 +26,14 @@ fn main() {
 
     // perl
     let begin_cdata = Regex::new(r#"<!\[CDATA\["#).unwrap(); // CDATA in line
+    let one_line_cdata = Regex::new(r#"<!\[CDATA\[[^\n]+\]\]"#).unwrap(); // CDATA in line   
     let end_cdata = Regex::new(r#"]]"#).unwrap(); // End in line
     let semicolon = Regex::new(r#";"#).unwrap();
     let curly = Regex::new(r#"[{}]"#).unwrap();
-    let curly_semi = Regex::new(r#"[{;}]"#).unwrap();
+    let curly_semi_alligator_newl_comm_dolla = Regex::new(r#"[<>{};\s#$]"#).unwrap();
     let cdata_comment = Regex::new(r#"\s+#"#).unwrap();
     let just_cdata_comment_loc = Regex::new(r#"#[^\n]+\n"#).unwrap();
-    let is_comment = Regex::new(r#"#[^;{}]+[;{}]"#).unwrap();
+    let tab_nl = Regex::new(r#"\t\n"#).unwrap();
 
     let mut perl_code: String = String::new();
     let mut in_cdata = false;
@@ -41,7 +42,8 @@ fn main() {
     let rm_ws = Regex::new(r"\s+").unwrap();
 
     // comments
-    let xml_comment_body = Regex::new(r#"<!--.*[^-][^-]"#).unwrap();
+    let xml_comment_body = Regex::new(r#"<!--[\s\S]+[^-][^-]"#).unwrap();
+    let end_xml_comment_body = Regex::new(r#"<!--[\s\S]+[^-][^-]$"#).unwrap();
 
     // handle ? xml line
     let xml_file_version = Regex::new(r#"<\?[^?]*\?"#).unwrap();
@@ -50,10 +52,10 @@ fn main() {
     let head_string = Regex::new(r#"<(\w+)"#).unwrap(); // <powerstream
 
     // handle body lines
-    let bod_strings = Regex::new(r#"(\s*[[:word:]]+="[^"/]*")+"#).unwrap(); //  win_run_path="%%runpath2" unix_run_path="%%runpath" name="powerstream"
+    let bod_strings = Regex::new(r#"(\s*[[:word:]]+="[^"]*")+"#).unwrap(); //  win_run_path="%%runpath2" unix_run_path="%%runpath" name="powerstream"
     let in_declaration = Regex::new(r#"^\s*(.+)=$"#).unwrap(); // memo=
     let in_quotes = Regex::new(r#"[^=]$"#).unwrap(); // "string to be saved"
-    let end_slash = Regex::new(r#"\s+/"#).unwrap(); // "/>"
+    let end_slash = Regex::new(r#"\s*/$"#).unwrap(); // "/>"
 
     // handle foot lines
     let foot_slash = Regex::new(r#"</[[:word:]]+"#).unwrap(); // </powerstream
@@ -68,22 +70,21 @@ fn main() {
         // line cleanup
         let line = n_line.expect("Unable to read line");
         let line = std::str::from_utf8(&line).unwrap();
-        let line = line.replace("\t", "");
-
+        
         let mut perl_comments: Vec<String> = Vec::new();
-        let mut comment_count: usize = 0;
-
+        let line = line.replace("\n\n", "\n");
+        let line = line.replace("\t", "");
+        let line = line.replace("     ", " ");
+        let line = line.replace("    ", " ");
+        let line = line.replace("   ", " ");
+        let line = line.replace("  ", " ");
+        
         // handle perl comment issue before line breaks
         if cdata_comment.is_match(&line) {
             for comment in just_cdata_comment_loc.find_iter(&line) {
                 perl_comments.push(line[comment.start()..comment.end()].to_string());
             }
-            // println!("comments: {}",perl_comments);
         }
-
-        let line = line.replace("\n", " ");
-        let line = line.replace("  ", " ");
-        let line = line.replace("  ", " ");
 
         // handle perl lines
         if begin_cdata.is_match(&line) || in_cdata {
@@ -111,81 +112,96 @@ fn main() {
 
             let mut temp_perl = String::new();
 
+            // perl_code = perl_code.replace("\n  ", "\n");
+            perl_code = perl_code.replace("\n ", "\n");
+
             // check for ;
             if semicolon.is_match(&perl_code) {
-                let mut last_cs: usize = 0;
-                // add newline after cdata
-                temp_perl = [
-                    temp_perl,
-                    '\n'.to_string(),
-                    // "\t".to_string().repeat(tab_mult),
-                ]
-                .concat();
+                let mut last_curly_semi: usize = 0;
 
-                // check for comments
-                if is_comment.is_match(&perl_code) {
-                    for temp_comment_loc in is_comment.find_iter(&perl_code) {
-                        // match this comment with comments found earlier
-                        let perl_code_clone = &perl_code.clone();
-                        let cloned_chunk =
-                            &perl_code_clone[temp_comment_loc.start()..temp_comment_loc.end() + 1];
-                        // if they match each other
-                        if &cloned_chunk[0..perl_comments[comment_count].len() - 1] == &perl_comments[comment_count][..perl_comments[comment_count].len() - 1] {
-                            temp_perl = [
-                                '\t'.to_string().repeat(tab_mult),
-                                perl_code[..temp_comment_loc.start()].to_string(),
-                                '\n'.to_string(),
-                                '\t'.to_string().repeat(tab_mult),
-                                perl_comments[comment_count].to_string(),
-                            ]
-                            .concat();
-                            comment_count += 1;
-                        }
-                    }
+                tab_mult += 1;
+                let mut temp_tab = "\n".to_string();
+                temp_tab = [temp_tab, "\t".to_string().repeat(tab_mult)].concat();
+                perl_code = perl_code.replace("\n", &temp_tab);
+                
+                perl_code = perl_code.replace("\t\n", "\n");
+                temp_tab = ["\t".to_string().repeat(tab_mult-1), temp_tab].concat();
+                
+                // check if \t\n exists
+                if tab_nl.is_match(&perl_code) {
+                    perl_code = perl_code.replace(&temp_tab, &"\t".to_string().repeat(tab_mult));
                 }
+
+                // perl_code = perl_code.replace("\t\n", "");
 
                 // check for {}
                 if curly.is_match(&perl_code) {
-                    for current_cs in curly_semi.find_iter(&perl_code) {
-                        // add before tab
-                        temp_perl = [temp_perl, '\t'.to_string().repeat(tab_mult)].concat();
-                        
-                        // if it's an open curly
-                        if &perl_code[current_cs.start()..current_cs.start() + 1] == "{" {
-                            temp_perl = [
-                                temp_perl,
-                                perl_code[last_cs..current_cs.end() - 1].to_string(),
-                                "\n".to_string(),
-                                "\t".to_string().repeat(tab_mult),
-                                "{\n".to_string(),
-                            ]
-                            .concat();
-                            last_cs = current_cs.end();
-                            tab_mult += 1;
-                        }
+                    let mut in_alligator = false;
+                    let mut in_comments = false;
+                    let mut in_dolla = false;
+                    for current_ender in curly_semi_alligator_newl_comm_dolla.find_iter(&perl_code) {
+                        let this_one = &perl_code[current_ender.start()..current_ender.start() + 1];
+                        // temp_perl = [temp_perl, '\t'.to_string().repeat(tab_mult)].concat();
+                        if this_one == " " || this_one == "\n" || this_one == "\t" || this_one == ";" {
+                            in_dolla = false;
+                        } if this_one == "\n" {
+                            in_comments = false;
+                        } else if this_one == "<" {
+                            in_alligator = true;
+                        } else if this_one == ">" {
+                            in_alligator = false;
+                        } else if this_one == "#" {
+                            in_comments = true;
+                        } else if this_one == "$" {
+                            in_dolla = true;
+                        } else if !(in_comments || in_alligator || in_dolla) {
+                            if this_one == "{" {
+                                // if a \n before
+                                if &perl_code[current_ender.start() - tab_mult - 1..current_ender.start() - tab_mult] == "\n" {
+                                    temp_perl = [
+                                    temp_perl,
+                                    perl_code[last_curly_semi..current_ender.end() - 1].to_string(),
+                                    "{".to_string(),
+                                ]
+                                .concat();
+                                } else 
+                                {
+                                    temp_perl = [
+                                    temp_perl,
+                                    perl_code[last_curly_semi..current_ender.end() - 1].to_string(),
+                                    "\n".to_string(),
+                                    "\t".to_string().repeat(tab_mult),
+                                    "{".to_string(),
+                                ]
+                                .concat();
+                                }
 
-                        // if it's a semi-colon
-                        else if &perl_code[current_cs.start()..current_cs.start() + 1] == ";" {
-                            temp_perl = [
-                                temp_perl,
-                                perl_code[last_cs..current_cs.end()].to_string(),
-                                "\n".to_string(),
-                            ]
-                            .concat();
-                            last_cs = current_cs.end();
-                        }
-                        // if it's a close curly
-                        else if &perl_code[current_cs.start()..current_cs.start() + 1] == "}" {
-                            temp_perl = [
-                                temp_perl,
-                                perl_code[last_cs..current_cs.end()].to_string(),
-                                "\n".to_string(),
-                            ]
-                            .concat();
-                            tab_mult -= 1;
+                                
+                                last_curly_semi = current_ender.end();
+                                tab_mult += 1;
+                            }
+                            // if it's a semi-colon inside curlys
+                            else if this_one == ";" {
+                                temp_perl = [
+                                    temp_perl,
+                                    perl_code[last_curly_semi ..current_ender.end()].to_string(),
+                                ]
+                                .concat();
+                                last_curly_semi = current_ender.end();
+                            }
+                            // if it's a close curly
+                            else if this_one == "}" {
+                                temp_perl = [
+                                    temp_perl,
+                                    "\n".to_string(),
+                                    perl_code[last_curly_semi + 1..current_ender.end()].to_string(),
+                                ]
+                                .concat();
+                                tab_mult -= 1;
+                                last_curly_semi = current_ender.end();
+                            }
                         }
                     }
-                    temp_perl = [temp_perl, "\t".to_string().repeat(tab_mult)].concat();
                 } else {
                     for prl in perl_code.split(';') {
                         temp_perl = [
@@ -193,7 +209,8 @@ fn main() {
                             // "\n".to_string(),
                             "\t".to_string().repeat(tab_mult),
                             prl.to_string(),
-                            ";\n".to_string(),
+                            ";".to_string(),
+                            // ";\n".to_string(),
                         ]
                         .concat();
                     }
@@ -203,43 +220,147 @@ fn main() {
                 }
                 // temp_perl = [temp_perl, "\t".to_string().repeat(tab_mult)].concat();
                 perl_code = temp_perl;
+                tab_mult -= 1;
+
+                if perl_code.as_bytes()[perl_code.len() - 1 - tab_mult] == '\n' as u8 {
+                    xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    perl_code,
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+                } else {
+
+                xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    perl_code,
+                    "\n".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+                }
+
+
+            } else if one_line_cdata.is_match(&line) {
+                let mut temp_tab = "\n".to_string();
+                temp_tab = [temp_tab, "\t".to_string().repeat(tab_mult)].concat();
+                perl_code = perl_code.replace("\n", &temp_tab);
+                xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    perl_code,
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+            } else  {
+                // let mut temp_tab = "\n".to_string();
+                // temp_tab = [temp_tab, "\t".to_string().repeat(tab_mult)].concat();
+                // perl_code = perl_code.replace("\n", &temp_tab);
+                let mut temp_tab = "\n".to_string();
+                temp_tab = [temp_tab, "\t".to_string().repeat(tab_mult)].concat();
+                perl_code = perl_code.replace("\n", &temp_tab);
+                
+                perl_code = perl_code.replace("\t\n", "\n");
+                temp_tab = ["\t".to_string().repeat(tab_mult-1), temp_tab].concat();
+                if tab_nl.is_match(&perl_code) {
+                    perl_code = perl_code.replace(&temp_tab, &"\t".to_string().repeat(tab_mult));
+                }
+
+                if perl_code.as_bytes()[0] == '\n' as u8  && perl_code.as_bytes()[perl_code.len() - 1 - tab_mult] == '\n' as u8 {
+                    xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    perl_code,
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+                } else if perl_code.as_bytes()[0] == '\n' as u8 {
+                    xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    perl_code,
+                    "\n".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+                } else if perl_code.as_bytes()[perl_code.len() - 1 - tab_mult] == '\n' as u8 {
+                    xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    "\n".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    perl_code,
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+                } else {
+                xml_out = [
+                    xml_out,
+                    "\t".to_string().repeat(tab_mult),
+                    "<![CDATA[".to_string(),
+                    "\n".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    perl_code,
+                    "\n".to_string(),
+                    "\t".to_string().repeat(tab_mult),
+                    "]]>\n".to_string(),
+                ]
+                .concat();
+                }
             }
-            // let mut temp = String::new();
-            // found perl, split on ';'
-            // if semicolon.is_match(&perl_code) {
-            //     for prl in perl_code.split(';') {
-            //         temp = [
-            //             temp,
-            //             "\n".to_string(),
-            //             "\t".to_string().repeat(tab_mult),
-            //             prl.to_string(),
-            //             ';'.to_string(),
-            //         ]
-            //         .concat();
-            //     }
-            //     // get rid of extra ';'
-            //     temp.pop();
-            //     // temp = [temp, "\n".to_string(), "\t".to_string().repeat(tab_mult)].concat();
-            // }
-
-            // temp = [temp, perl_code.to_string()].concat();
-
-            // send cdata end to xml_out
-            xml_out = [
-                xml_out,
-                "\t".to_string().repeat(tab_mult),
-                "<![CDATA[".to_string(),
-                perl_code,
-                "]]>\n".to_string(),
-            ]
-            .concat();
-
             perl_code = String::new();
             in_cdata = false;
             continue;
         }
 
-        // todo: I need to fix this- it's not handling the outside elements correctly. Also need to do better perl formatting
+
+        // handle xml comments
+        if end_xml_comment_body.is_match(&line) {
+            let mut temp_tab = "\n".to_string();
+            temp_tab = [temp_tab, "\t".to_string().repeat(tab_mult)].concat();
+            let line = line.replace("\n", &temp_tab);
+            let c_bod = xml_comment_body.find(&line).unwrap();
+            // println!("{}", &line);
+            xml_out = [
+                xml_out,
+                "\t".to_string().repeat(tab_mult),
+                line[c_bod.start()..c_bod.end()].to_string(),
+                // "\t".to_string().repeat(tab_mult),
+                "> -->\n".to_string(),
+            ]
+            .concat();
+            continue;
+        } else if xml_comment_body.is_match(&line) {
+            let mut temp_tab = "\n".to_string();
+            temp_tab = [temp_tab, "\t".to_string().repeat(tab_mult)].concat();
+            let line = line.replace("\n", &temp_tab);
+            let c_bod = xml_comment_body.find(&line).unwrap();
+            // println!("{}", &line);
+            xml_out = [
+                xml_out,
+                "\t".to_string().repeat(tab_mult),
+                line[c_bod.start()..c_bod.end()].to_string(),
+                // "\t".to_string().repeat(tab_mult),
+                "-->\n".to_string(),
+            ]
+            .concat();
+            continue;
+        }
+        let line = line.replace("\n", " ");
+
         // handle outside of elements
         if special_perc.is_match(&line) {
             let spec = special_perc.find(&line).unwrap();
@@ -254,26 +375,14 @@ fn main() {
             // continue;
         }
 
-        // handle xml comments
-        if xml_comment_body.is_match(&line) {
-            let c_bod = xml_comment_body.find(&line).unwrap();
-            // println!("{}", &line);
-            xml_out = [
-                xml_out,
-                "\t".to_string().repeat(tab_mult),
-                line[c_bod.start()..c_bod.end()].to_string(),
-                "-->\n".to_string(),
-            ]
-            .concat();
-            continue;
-        }
-
         // handle the ? header
         if xml_file_version.is_match(&line) {
             xml_out = [xml_out, line[..].to_string(), ">\n".to_string()].concat();
             continue;
         }
 
+        let line = line.replace(" =", "=");
+        let line = line.replace("= ", "=");
         // handle normal xml
         let mut xml_peices = String::new();
 
@@ -334,7 +443,11 @@ fn main() {
 
         // handle "/>" (self closing / no children)
         if end_slash.is_match(&line) {
-            tab_mult -= 1;
+            if tab_mult > 0 {
+                tab_mult -= 1;
+            } else {
+                println!("tab mult issue: {}", &line);
+            }
             xml_peices = [
                 xml_peices,
                 "\t".to_string().repeat(tab_mult),
@@ -347,12 +460,16 @@ fn main() {
             let foot = foot_slash.find(&line).unwrap(); // have to find, this could be on the same line as other <>'s
             xml_peices = [
                 xml_peices,
-                "\t".to_string().repeat(tab_mult - 1),
+                "\t".to_string().repeat(tab_mult),
                 line[foot.start()..foot.end()].to_string(),
                 ">\n".to_string(),
             ]
             .concat();
-            tab_mult -= 1;
+            if tab_mult > 0 {
+                tab_mult -= 1;
+            } else {
+                println!("tab mult issue");
+            }
         } else {
             if !xml_peices.is_empty() {
                 xml_peices = [
