@@ -30,9 +30,9 @@ fn main() {
     let end_cdata = Regex::new(r#"]]"#).unwrap(); // End in line
     let semicolon = Regex::new(r#";"#).unwrap();
     let curly = Regex::new(r#"[{}]"#).unwrap();
-    let curly_semi_alligator_newl_comm_dolla = Regex::new(r#"[<>{};\s#$]"#).unwrap();
-    let cdata_comment = Regex::new(r#"\s+#"#).unwrap();
-    let just_cdata_comment_loc = Regex::new(r#"#[^\n]+\n"#).unwrap();
+    let curly_semi_alligator_newl_comm_dolla = Regex::new(r#"[<>(){};\s#$]"#).unwrap();
+    // let cdata_comment = Regex::new(r#"\s+#"#).unwrap();
+    // let just_cdata_comment_loc = Regex::new(r#"#[^\n]+\n"#).unwrap();
     let tab_nl = Regex::new(r#"\t\n"#).unwrap();
 
     let mut perl_code: String = String::new();
@@ -71,7 +71,7 @@ fn main() {
         let line = n_line.expect("Unable to read line");
         let line = std::str::from_utf8(&line).unwrap();
         
-        let mut perl_comments: Vec<String> = Vec::new();
+        // let mut perl_comments: Vec<String> = Vec::new();
         let line = line.replace("\n\n", "\n");
         let line = line.replace("\t", "");
         let line = line.replace("     ", " ");
@@ -80,11 +80,11 @@ fn main() {
         let line = line.replace("  ", " ");
         
         // handle perl comment issue before line breaks
-        if cdata_comment.is_match(&line) {
-            for comment in just_cdata_comment_loc.find_iter(&line) {
-                perl_comments.push(line[comment.start()..comment.end()].to_string());
-            }
-        }
+        // if cdata_comment.is_match(&line) {
+        //     for comment in just_cdata_comment_loc.find_iter(&line) {
+        //         perl_comments.push(line[comment.start()..comment.end()].to_string());
+        //     }
+        // }
 
         // handle perl lines
         if begin_cdata.is_match(&line) || in_cdata {
@@ -133,16 +133,18 @@ fn main() {
                 }
 
                 // perl_code = perl_code.replace("\t\n", "");
-
+                
                 // check for {}
                 if curly.is_match(&perl_code) {
+                    let mut in_parens = false;
                     let mut in_alligator = false;
                     let mut in_comments = false;
                     let mut in_dolla = false;
+                    // let mut last_comment: usize = 0;
                     for current_ender in curly_semi_alligator_newl_comm_dolla.find_iter(&perl_code) {
                         let this_one = &perl_code[current_ender.start()..current_ender.start() + 1];
                         // temp_perl = [temp_perl, '\t'.to_string().repeat(tab_mult)].concat();
-                        if this_one == " " || this_one == "\n" || this_one == "\t" || this_one == ";" {
+                        if this_one == " " || this_one == "\n" || this_one == "\t" || this_one == ";" || this_one == "="{
                             in_dolla = false;
                         } if this_one == "\n" {
                             in_comments = false;
@@ -150,11 +152,15 @@ fn main() {
                             in_alligator = true;
                         } else if this_one == ">" {
                             in_alligator = false;
+                        } else if this_one == "(" {
+                            in_parens = true;
+                        } else if this_one == ")" {
+                            in_parens = false;
                         } else if this_one == "#" {
                             in_comments = true;
                         } else if this_one == "$" {
                             in_dolla = true;
-                        } else if !(in_comments || in_alligator || in_dolla) {
+                        } else if !(in_comments || in_alligator || in_dolla || in_parens) {
                             if this_one == "{" {
                                 // if a \n before
                                 if &perl_code[current_ender.start() - tab_mult - 1..current_ender.start() - tab_mult] == "\n" {
@@ -174,9 +180,29 @@ fn main() {
                                     "{".to_string(),
                                 ]
                                 .concat();
-                                }
-
-                                
+                                }                                
+                                last_curly_semi = current_ender.end();
+                                tab_mult += 1;
+                            } else if this_one == "(" {
+                                // if a \n before
+                                if &perl_code[current_ender.start() - tab_mult - 1..current_ender.start() - tab_mult] == "\n" {
+                                    temp_perl = [
+                                    temp_perl,
+                                    perl_code[last_curly_semi..current_ender.end() - 1].to_string(),
+                                    "(".to_string(),
+                                ]
+                                .concat();
+                                } else 
+                                {
+                                    temp_perl = [
+                                    temp_perl,
+                                    perl_code[last_curly_semi..current_ender.end() - 1].to_string(),
+                                    "\n".to_string(),
+                                    "\t".to_string().repeat(tab_mult),
+                                    "(".to_string(),
+                                ]
+                                .concat();
+                                }                                
                                 last_curly_semi = current_ender.end();
                                 tab_mult += 1;
                             }
@@ -189,7 +215,18 @@ fn main() {
                                 .concat();
                                 last_curly_semi = current_ender.end();
                             }
-                            // if it's a close curly
+                            // if it's a close paren
+                            else if this_one == ")" {
+                                temp_perl = [
+                                    temp_perl,
+                                    // "\n".to_string(),
+                                    perl_code[last_curly_semi + 1..current_ender.end()].to_string(),
+                                    ]
+                                    .concat();
+                                    tab_mult -= 1;
+                                    last_curly_semi = current_ender.end();
+                                }
+                                // if it's a close curly
                             else if this_one == "}" {
                                 temp_perl = [
                                     temp_perl,
@@ -200,7 +237,18 @@ fn main() {
                                 tab_mult -= 1;
                                 last_curly_semi = current_ender.end();
                             }
-                        }
+                        } 
+                        // else if in_comments && this_one == ";" {
+                        //     // could be where I'm missing the end comments?
+                        //     // once = true;
+                        //     temp_perl = [
+                        //         temp_perl,
+                        //         "\n".to_string(),
+                        //         perl_code[last_curly_semi + 1..current_ender.end()].to_string(),
+                        //     ]
+                        //     .concat();
+                        // }
+                        
                     }
                 } else {
                     for prl in perl_code.split(';') {
