@@ -1,27 +1,36 @@
 #!/usr/bin/env python3
 from datetime import datetime
-import argparse
-
+from argparse import ArgumentParser, FileType
 
 def main(args) -> int:
     fin = open(args.infile.name, 'r')
     time_lst = []
     process_list = []
 
+    full_process_time = []
+
     for line in fin:
         if args.cue[0] in line:
             process_name, date, the_time = setup_str_lst(line)
 
-            process_list.append(cue_start_startword + ' ' + process_name)
-            time_lst.append(date + ' ' + the_time)
+            if process_name not in ["pre_process", "mid_process","final_process","full_process","post_process"]:
+                process_list.append(cue_start_startword + ' ' + process_name)
+                time_lst.append(date + ' ' + the_time)
+            elif process_name == "full_process":
+                full_process_time.append(date + ' ' + the_time)
+
         elif args.cue[1] in line:
             process_name, date, the_time = setup_str_lst(line)
 
-            process_list.append(cue_end_startword + ' ' + process_name)
-            time_lst.append(date + ' ' + the_time)
+            if process_name not in ["pre_process", "mid_process", "final_process", "full_process", "post_process"]:
+
+                process_list.append(cue_end_startword + ' ' + process_name)
+                time_lst.append(date + ' ' + the_time)
+            elif process_name == "full_process":
+                full_process_time.append(date + " " + the_time)
 
     fin.close()
-    return full_print(process_list, time_lst)
+    return full_print(process_list, time_lst, full_process_time)
 
 
 def setup_str_lst(line) -> tuple:
@@ -50,7 +59,7 @@ def num_from_string(date_str: str) -> str:
     return date_str[begin_nums:last_nums + 1]
 
 
-def full_print(process_lst: str, time_lst: str) -> int:
+def full_print(process_lst: str, time_lst: str, full_process_time: str) -> int:
     start_table = {}
     final_table = {}
     out_string = ""
@@ -78,12 +87,20 @@ def full_print(process_lst: str, time_lst: str) -> int:
             end_time = get_time_formatted(time_lst[i])
 
             start_table[process_name] = end_time
-    final_table["total"] = total_time
+    # final_table["total"] = total_time
 
     for key in final_table:
         final_table[key] = scale_time(final_table[key])
-        out_string += str(key) + ' ' + str(final_table[key]) + '\n'
+        out_string += (str(key) + ':').ljust(27) + str(final_table[key]) + '\n'
 
+    full_process_actual = get_time_formatted(full_process_time[1]) - get_time_formatted(full_process_time[0])
+
+
+    dif_time = full_process_actual - total_time
+
+    out_string += "\n" + "Time accounted for:".ljust(27) + scale_time(total_time)
+    out_string += "\n" + "Full process actual time:".ljust(27) + scale_time(full_process_actual)
+    out_string += "\n" + "Time unaccounted for:".ljust(27) + scale_time(dif_time) + '\n'
     return cust_out(out_string)
 
 
@@ -155,11 +172,11 @@ def cust_out(out_string: str) -> int:
 
 
 # handle arguments:
-parser = argparse.ArgumentParser(
+parser = ArgumentParser(
     description="Returns the times processes run from log text files.")
 parser.add_argument(dest="infile", 
                     nargs='?',
-                    type=argparse.FileType('r'),
+                    type=FileType('r'),
                     help="<Required> log's full path")
 
 parser.add_argument('-c', dest="cue",
@@ -182,7 +199,7 @@ parser.add_argument('-L', dest="truncate_level",
 
 parser.add_argument('-o', dest="outfile",
                     nargs='?',
-                    type=argparse.FileType('w'),
+                    type=FileType('w'),
                     help="Save to file <path to file> ")
 
 parser.add_argument('-t', dest="time_format",
