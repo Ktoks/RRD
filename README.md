@@ -6,3 +6,11 @@
 
 
 - ### harpers_r is a script that inputs an xml file that takes an input file and output file, if specific text is in the file, other text will be edited to meet a specific purpose
+
+## License
+
+Licensed under
+
+
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
